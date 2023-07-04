@@ -14,9 +14,6 @@ from ipykernel.kernelbase import Kernel
 from dyalog_kernel import __version__
 from notebook.services.config import ConfigManager
 
-if sys.platform.lower().startswith('win'):
-    from winreg import *
-
 handShake1 = b'\x00\x00\x00\x1cRIDESupportedProtocols=2'
 handShake2 = b'\x00\x00\x00\x17RIDEUsingProtocol=2'
 
@@ -216,43 +213,15 @@ class DyalogKernel(Kernel):
 
         # if Dyalog APL and Jupyter executables are on the same host (localhost) let's start instance of Dyalog
         if DYALOG_HOST == '127.0.0.1':
-            if sys.platform.lower().startswith('win'):
-                # Windows. Let's find an installed version to use
-                hkcuReg = ConnectRegistry(None, HKEY_CURRENT_USER)
-                dyalogKey = OpenKey(hkcuReg, r"SOFTWARE\Dyalog")
-                installCount = QueryInfoKey(dyalogKey)[0]
-                for n in range(installCount):
-                    currInstall = EnumKey(dyalogKey, installCount - (n + 1))
-                    if currInstall[:12] == "Dyalog APL/W":
-                        break
-                lastKey = OpenKey(hkcuReg, r"SOFTWARE\\Dyalog\\" + currInstall)
-                dyalogPath = QueryValueEx(lastKey, "dyalog")[
-                    0] + "\\dyalog.exe"
-                CloseKey(dyalogKey)
-                CloseKey(lastKey)
-                self.dyalog_subprocess = subprocess.Popen([dyalogPath, "RIDE_SPAWNED=1", "DYALOGQUIETUCMDBUILD=1", 'RIDE_INIT=SERVE::' + str(
-                    self._port).strip(), 'LOG_FILE=nul', os.path.dirname(os.path.abspath(__file__)) + '/init.dws'])
-            else:
-                # linux, darwin... etc
-                dyalog_env = os.environ.copy()
-                dyalog_env['RIDE_INIT'] = 'SERVE:*:' + str(self._port).strip()
-                dyalog_env['RIDE_SPAWNED'] = '1'
-                dyalog_env['DYALOGQUIETUCMDBUILD'] = '1'
-                dyalog_env['ENABLE_CEF'] = '0'
-                dyalog_env['LOG_FILE'] = '/dev/null'
-                if sys.platform.lower() == "darwin":
-                    for d in sorted(os.listdir('/Applications')):
-                        if re.match('^Dyalog-\d+\.\d+\.app$', d):
-                            dyalog = '/Applications/' + d + '/Contents/Resources/Dyalog/mapl'
-                else:
-                    for v in sorted(os.listdir('/opt/mdyalog')):
-                        if re.match('^\d+\.\d+$', v):
-                            dyalog = '/opt/mdyalog/' + v + '/'
-                            dyalog += sorted(os.listdir(dyalog))[-1] + '/'
-                            dyalog += sorted(os.listdir(dyalog)
-                                             )[-1] + '/' + 'mapl'
-                self.dyalog_subprocess = subprocess.Popen([dyalog, '+s', '-q', os.path.dirname(os.path.abspath(
-                    __file__)) + '/init.dws'], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dyalog_env)
+            # linux, darwin... etc
+            dyalog_env = os.environ.copy()
+            dyalog_env['RIDE_INIT'] = 'SERVE:*:' + str(self._port).strip()
+            dyalog_env['RIDE_SPAWNED'] = '1'
+            dyalog_env['DYALOGQUIETUCMDBUILD'] = '1'
+            dyalog_env['ENABLE_CEF'] = '0'
+            dyalog_env['LOG_FILE'] = '/dev/null'
+            self.dyalog_subprocess = subprocess.Popen(['dyalog', '+s', '-q', os.path.dirname(os.path.abspath(
+                __file__)) + '/init.dws'], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dyalog_env)
 
         # disable auto closing of brackets/quotation marks. Not very useful in APL
         # Pass None instead of False to restore auto-closing feature
